@@ -22,6 +22,7 @@ const init = async (bot, config) => {
     bot.start(startCommand());
 
     bot.hears('Заполнить анкету',  (ctx)  =>  ctx.scene.enter('fio'));
+    
     // Actions
 
     bot.action(/Confirm/, ({ telegram, chat, callbackQuery, inlineMessageId, match }) => {
