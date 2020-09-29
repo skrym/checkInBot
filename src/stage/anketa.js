@@ -2,7 +2,8 @@ const Stage = require("telegraf/stage");
 const Scene = require("telegraf/scenes/base");
 const Markup = require ("telegraf/markup");
 const Extra = require ("telegraf/extra");
-const express = require("express");
+
+const redisClient = require("../redis")
 
 const FIO = new Scene('fio')
 FIO.enter((ctx) => ctx.reply('Введите Ваше Фамилия Имя Отчество', Extra.markup(Markup.removeKeyboard(true))))
@@ -22,11 +23,18 @@ Phone.on('contact', (ctx) => {
 })
 
 const Face = new Scene('facebook')
-Face.enter((ctx) => ctx.reply('Автоизируйтесь через Facebook', FaceButton(ctx.session.id)))
-Face.on('text', (ctx) => {
-
-    ctx.telegram.sendMessage(816382988, `Фио: ${ctx.session.name}, UserName: @${ctx.session.user}, номер телефона: ${ctx.session.tel}, Instagram:`, AdminButtons(ctx.session.id));
-    ctx.reply('Спасибо за заявку, ожидайте ответа администратора', Extra.markup(Markup.removeKeyboard(true)));
+Face.enter(async (ctx) => {
+    ctx.reply('Для завершение пройдите по ссылке, авторизируйтесь через ваш фейбук аккаунт и ожидайте ответа администратора', FaceButton(ctx.session.id));
+    redisClient.set(String(ctx.session.id), JSON.stringify({
+        name: ctx.session.name,
+        username: ctx.session.user,
+        chatId: ctx.session.id,
+        phone: ctx.session.tel
+    }), (r) => {
+        setTimeout(() => redisClient.del(`${ctx.session.id}`), 1000 * 60 * 120)
+    })
+    const msgId = await ctx.telegram.sendMessage(816382988, `Фио: ${ctx.session.name}, UserName: @${ctx.session.user}, номер телефона: ${ctx.session.tel}, Instagram:`, AdminButtons(ctx.session.id))
+        .then(ctx2 => ctx2.message_id);
 })
 
 const PhoneButtons = {

@@ -12,49 +12,68 @@ const startCommand = require("./commands/start");
 const AnketaStage = require("./stage/anketa");
 const { callbackButton } = require('telegraf/markup');
 
-const init = async (bot, config) => {
+const app = require("./express")
+const redisClient = require("./redis")
+const bot = require("./bot")
 
-    // middleware
-    bot.use(session())
-    bot.use(AnketaStage.middleware())
+// middleware
+bot.use(session())
+bot.use(AnketaStage.middleware())
 
-    // commands
-    bot.start(startCommand());
+// commands
+bot.start(startCommand());
 
-    bot.hears('Заполнить анкету',  (ctx)  =>  ctx.scene.enter('fio'));
-    
-    // Actions
+bot.hears('Заполнить анкету',  (ctx)  =>  ctx.scene.enter('fio'));
 
-    bot.action(/Confirm/, ({ telegram, chat, callbackQuery, inlineMessageId, match }) => {
-        const { message } = callbackQuery
+// Actions
 
-        // Ответ заявочнику
-        const chatId = match.input.split('_')[1]
-        telegram.sendMessage(chatId, "Ваша заявка принята, скоро наш аминистратор добавит Вас в группу");
+bot.action(/Confirm/, ({ telegram, chat, callbackQuery, inlineMessageId, match }) => {
+    const { message } = callbackQuery
 
-        // Редактирование сообщения админа
-        const newText = `${message.text}\n\nЗаявка Принята`
-        telegram.editMessageText(chat.id, message.message_id, inlineMessageId, newText, Extra.markup())
-    });
+    // Ответ заявочнику
+    const chatId = match.input.split('_')[1]
+    telegram.sendMessage(chatId, "Ваша заявка принята, скоро наш аминистратор добавит Вас в группу");
 
-    bot.action(/Reject/, ({ telegram, chat, callbackQuery, inlineMessageId, match }) => {
-        const { message } = callbackQuery
-
-        // Ответ заявочнику
-        const chatId = match.input.split('_')[1]
-        telegram.sendMessage(chatId, "Ваша заявка отклонена");
-
-        // Редактирование сообщения админа
-        const newText = `${message.text}\n\nЗаявка Отклонена`
-        telegram.editMessageText(chat.id, message.message_id, inlineMessageId, newText, Extra.markup())
-    });
-
-    return bot;
-};
-
-init(new Telegraf(BOT_TOKEN), process.env).then(async (bot) => {
-    await bot.launch();
-    console.log(`Start`);
+    // Редактирование сообщения админа
+    const newText = `${message.text}\n\nЗаявка Принята`
+    telegram.editMessageText(chat.id, message.message_id, inlineMessageId, newText, Extra.markup())
 });
 
-module.exports = init;
+bot.action(/Reject/, ({ telegram, chat, callbackQuery, inlineMessageId, match }) => {
+    const { message } = callbackQuery
+
+    // Ответ заявочнику
+    const chatId = match.input.split('_')[1]
+    telegram.sendMessage(chatId, "Ваша заявка отклонена");
+
+    // Редактирование сообщения админа
+    const newText = `${message.text}\n\nЗаявка Отклонена`
+    telegram.editMessageText(chat.id, message.message_id, inlineMessageId, newText, Extra.markup())
+});
+
+app.post('/api/v1/fb_user', async (req, res) => {
+    console.log(req.body)
+    redisClient.get(`${req.body.tgUser}`, (err, data) => {
+        const {name, username, phone, chatId} = JSON.parse(data)
+        bot.telegram.sendMessage(816382988, 
+`Фио: ${name}, 
+Tg UserName: @${username}, 
+Номер телефона: ${phone}, 
+
+Facebook:
+Имя: ${req.body.name}
+id: ${req.body.id}`, 
+        AdminButtons(chatId))
+        bot.telegram.sendPhoto(816382988, `https://graph.facebook.com/${req.body.id}/picture?type=large`)
+        res.send({status: 'OK'})
+    })
+})
+
+const AdminButtons = (id)  => ({
+    reply_markup:{
+        inline_keyboard:[
+            [{text: 'Подтвердить', callback_data: `Confirm_${id}`}],
+            [{text: 'Отклонить', callback_data: `Reject_${id}`}],
+        ], resize_keyboard: true, 
+    }
+})
