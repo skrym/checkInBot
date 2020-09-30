@@ -51,7 +51,12 @@ bot.action(/Reject/, ({ telegram, chat, callbackQuery, inlineMessageId, match })
     telegram.editMessageText(chat.id, message.message_id, inlineMessageId, newText, Extra.markup())
 });
 
-app.post('/api/v1/fb_user', async (req, res) => {
+app.get('/', (req,res) => {
+  console.log('YRA!!!!!!!!!!!!!!!!!!')
+  res.send('privetik')
+})
+
+app.post('/fb_user', async (req, res) => {
     console.log(req.body)
     redisClient.get(`${req.body.tgUser}`, (err, data) => {
         const {name, username, phone, chatId} = JSON.parse(data)
